@@ -1,14 +1,13 @@
 name: azure_ad_authentication
 description: The Microsoft Authentication Library (MSAL) enables developers to acquire tokens
   from the Microsoft identity platform in order to authenticate users and access secured
-version: 1.0.3
+version: 1.1.0
 homepage: https://github.com/fabio21
 repository: https://github.com/fabio21/azure_ad_authentication/issues
 issue_tracker: https://github.com/fabio21/azure_ad_authentication/issues
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
-  flutter: ">=1.20.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -17,8 +16,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^1.0.0
-  dartdoc: ^4.0.0
+  flutter_lints: ^3.0.0
+  dartdoc: ^6.3.0
 
 flutter:
   plugin:

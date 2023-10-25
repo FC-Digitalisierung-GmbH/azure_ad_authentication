@@ -27,13 +27,16 @@ class AzureAdAuthentication {
   ///```
   /// param required String clientId
   /// param required String authority
-  /// param String? redirectUri (only for MacOs)
+  /// param String? redirectUri (only for MacOs/Android)
   /// return AzureAdAuthentication
   /// ```
-  static Future<AzureAdAuthentication> createPublicClientApplication(
-      {required String clientId, required String authority, String? redirectUri}) async {
-    var res =
-        AzureAdAuthentication._create(clientId: clientId, authority: authority,redirectUri: redirectUri);
+  static Future<AzureAdAuthentication> createPublicClientApplication({
+    required String clientId,
+    required String authority,
+    String? redirectUri,
+  }) async {
+    var res = AzureAdAuthentication._create(
+        clientId: clientId, authority: authority, redirectUri: redirectUri);
     await res._initialize();
 
     return res;
@@ -139,7 +142,7 @@ class AzureAdAuthentication {
     if (_authority != null) {
       res["authority"] = _authority;
     }
-    if(_redirectUri != null){
+    if (_redirectUri != null) {
       res["redirectUri"] = _redirectUri;
     }
 

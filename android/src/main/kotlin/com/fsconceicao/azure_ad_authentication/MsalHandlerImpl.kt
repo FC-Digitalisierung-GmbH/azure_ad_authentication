@@ -9,6 +9,7 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import org.jetbrains.annotations.Nullable
+import org.json.JSONObject
 import java.util.*
 
 
@@ -43,10 +44,12 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
         val scopesArg: ArrayList<String>? = call.argument("scopes")
         val scopes: Array<String>? = scopesArg?.toTypedArray()
         val clientId: String? = call.argument("clientId")
+        val authority: String? = call.argument("authority")
+        val redirectUri: String? = call.argument("redirectUri")
         //our code
         when (call.method) {
             "initialize" -> {
-                initialize(clientId, result)
+                initialize(clientId, authority, redirectUri, result)
             }
             "loadAccounts" -> Thread(Runnable { msal.loadAccounts(result) }).start()
             "acquireToken" -> Thread(Runnable { acquireToken(scopes, result) }).start()
@@ -178,7 +181,7 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
         }
     }
 
-    private fun initialize(clientId: String?, result: MethodChannel.Result) {
+    private fun initialize(clientId: String?, authority: String?, redirectUri: String?, result: MethodChannel.Result) {
         //ensure clientid provided
         if (clientId == null) {
             result.error("NO_CLIENTID", "Call must include a clientId", null)
@@ -201,10 +204,56 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
         }
         if (!msal.isClientInitialized()) {
             // if authority is set, create client using it, otherwise use default
-            PublicClientApplication.createMultipleAccountPublicClientApplication(
-                msal.applicationContext,
-                R.raw.msal_default_config, msal.getApplicationCreatedListener(result)
-            )
+            if (authority != null || redirectUri != null) {
+                // get json config from raw resource
+                val config = msal.applicationContext.resources.openRawResource(R.raw.msal_default_config)
+                    .bufferedReader().use { it.readText() }
+                // parse json config
+                val configJson = JSONObject(config)
+                if (authority != null) {
+                    // get tenant_id from authority string (https://login.microsoftonline.com/3f9f5fd2-5517-43f7-baa3-63ee31f79721)
+                    val tenantId = authority.split("/").last()
+                    // "authorities":[
+                    //    {
+                    //      "type":"AAD",
+                    //      "audience":{
+                    //        "type":"AzureADMyOrg",
+                    //        "tenant_id":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    //      }
+                    //    }
+                    //  ]
+                    // Replace the default tenant_id in with the one provided by the user
+                    Log.d("msal", "Replacing tenant_id with $tenantId")
+                    configJson.getJSONArray("authorities").getJSONObject(0).getJSONObject("audience")
+                        .put("tenant_id", tenantId)
+                }
+                if (redirectUri != null) {
+                    // "redirect_uri": "msauth://app.prio365.prod/2ZlH1zdUYG9x%2FNshnrFk%2Bb9fhds%3D",
+                    // Replace the default redirect_uri in with the one provided by the user
+                    Log.d("msal", "Replacing redirect_uri with $redirectUri")
+                    configJson.put("redirect_uri", redirectUri)
+                }
+                // set the client_id
+                configJson.put("client_id", clientId)
+
+                // save the updated config into the application support directory
+                msal.applicationContext.openFileOutput("msal_custom_config.json", 0).use {
+                    it.write(configJson.toString().toByteArray())
+                }
+                // get the updated config file from the application support directory as File object
+                val configFile =
+                    msal.applicationContext.getFileStreamPath("msal_custom_config.json")
+                PublicClientApplication.createMultipleAccountPublicClientApplication(
+                    msal.applicationContext,
+                    configFile, msal.getApplicationCreatedListener(result)
+                )
+            } else {
+                PublicClientApplication.createMultipleAccountPublicClientApplication(
+                    msal.applicationContext,
+                    R.raw.msal_default_config, msal.getApplicationCreatedListener(result)
+                )
+
+            }
         }
     }
 
