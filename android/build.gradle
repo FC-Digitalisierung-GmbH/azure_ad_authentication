@@ -55,5 +55,10 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    implementation "com.microsoft.identity.client:msal:${msalVersion}"
+    implementation("com.microsoft.identity.client:msal:${msalVersion}") {
+        exclude(group : "io.opentelemetry")
+    }
+
+    implementation("io.opentelemetry:opentelemetry-api:1.18.0")
+    implementation("io.opentelemetry:opentelemetry-context:1.18.0")
 }
