@@ -50,6 +50,8 @@ android {
     defaultConfig {
         minSdkVersion 16
     }
+
+    namespace 'com.fsconceicao.azure_ad_authentication'
 }
 
 dependencies {
