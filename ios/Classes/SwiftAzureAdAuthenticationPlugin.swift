@@ -86,6 +86,9 @@ extension SwiftAzureAdAuthenticationPlugin {
             let webviewParameters = MSALWebviewParameters(authPresentationViewController: viewController)
             if #available(iOS 13.0, *) {
                 webviewParameters.prefersEphemeralWebBrowserSession = true
+                #if targetEnvironment(simulator)
+                webviewParameters.webviewType = MSALWebviewType.wkWebView
+                #endif
             }
             
             removeAccount(application)
