@@ -244,7 +244,7 @@ extension SwiftAzureAdAuthenticationPlugin {
         // we first signed in the account.
         guard let accountIdentifier = currentAccountIdentifier else {
             // If we did not find an identifier then throw an error indicating there is no currently signed in account.
-            result(FlutterError(code: "CONFIG_ERROR", message: "Account identifier", details: nil))
+            //result(FlutterError(code: "CONFIG_ERROR", message: "Account identifier", details: nil))
             return nil
         }
         var acc: MSALAccount?
