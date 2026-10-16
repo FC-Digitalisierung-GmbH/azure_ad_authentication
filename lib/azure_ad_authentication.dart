@@ -94,7 +94,7 @@ class AzureAdAuthentication {
       UserAdModel userAdModel = UserAdModel.fromJson(jsonDecode(json));
       return await _getUserModel(userAdModel);
     } on PlatformException catch (e) {
-      throw _convertException(e).errorMessage;
+      throw _convertException(e);
     }
   }
 
@@ -106,7 +106,7 @@ class AzureAdAuthentication {
       }
       await _channel.invokeMethod('logout', <String, dynamic>{});
     } on PlatformException catch (e) {
-      throw _convertException(e).errorMessage;
+      throw _convertException(e);
     }
   }
 
@@ -131,9 +131,12 @@ class AzureAdAuthentication {
         return MsalChangedClientIdException();
       case "INIT_ERROR":
         return MsalInitializationException();
+      case "INTERACTION_REQUIRED":
+        return MsalInteractionRequiredException(
+            e.message ?? "Interaction required");
       case "AUTH_ERROR":
       default:
-        return MsalException("Authentication error");
+        return MsalException(e.message ?? "Authentication error");
     }
   }
 
@@ -149,7 +152,7 @@ class AzureAdAuthentication {
     try {
       await _channel.invokeMethod('initialize', res);
     } on PlatformException catch (e) {
-      throw _convertException(e).errorMessage;
+      throw _convertException(e);
     }
   }
 }

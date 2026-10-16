@@ -83,30 +83,40 @@ class Msal(context: Context, activity: FlutterActivity?) {
             }
 
             override fun onError(exception: MsalException) {
-                when (exception) {
-                    is MsalClientException -> {
-                        result.error(
-                            "NO_SCOPE",
-                            "Call must include a scope",
-                            exception.localizedMessage
-                        )
-                    }
-                    is MsalServiceException -> {
-                        result.error(
-                            "NO_SCOPE",
-                            exception.localizedMessage,
-                            exception.localizedMessage
-                        )
-                    }
-                    is MsalUiRequiredException -> {
-                        result.error(
-                            "NO_SCOPE",
-                            "Call must include a scope",
-                            exception.localizedMessage
-                        )
-                    }
-                    else -> {
-                        Log.d("MSAL_FLUTTER", "Authentication failed: $exception")
+                Handler(Looper.getMainLooper()).post {
+                    when (exception) {
+                        // First: the most specific type must win over the generic client/service branches.
+                        // Refresh token expired or revoked, Conditional Access sign-in frequency, password change, …
+                        is MsalUiRequiredException -> {
+                            result.error(
+                                "INTERACTION_REQUIRED",
+                                exception.localizedMessage,
+                                exception.errorCode
+                            )
+                        }
+                        is MsalClientException -> {
+                            result.error(
+                                "NO_SCOPE",
+                                "Call must include a scope",
+                                exception.localizedMessage
+                            )
+                        }
+                        is MsalServiceException -> {
+                            result.error(
+                                "NO_SCOPE",
+                                exception.localizedMessage,
+                                exception.localizedMessage
+                            )
+                        }
+                        // Every branch must complete the result, otherwise the Dart future never returns.
+                        else -> {
+                            Log.d("MSAL_FLUTTER", "Authentication failed: $exception")
+                            result.error(
+                                "AUTH_ERROR",
+                                exception.localizedMessage,
+                                exception.errorCode
+                            )
+                        }
                     }
                 }
             }

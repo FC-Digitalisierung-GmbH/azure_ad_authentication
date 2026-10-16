@@ -2,6 +2,16 @@
 class MsalException implements Exception {
   String errorMessage;
   MsalException(this.errorMessage);
+
+  @override
+  String toString() => '$runtimeType: $errorMessage';
+}
+
+/// message error MsalInteractionRequiredException
+/// Silent token acquisition needs the user: refresh token expired or revoked,
+/// Conditional Access sign-in frequency, password change, …
+class MsalInteractionRequiredException extends MsalException {
+  MsalInteractionRequiredException(super.errorMessage);
 }
 
 /// message error  MsalChangedClientIdException
