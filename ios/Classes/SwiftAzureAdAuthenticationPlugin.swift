@@ -116,18 +116,9 @@ extension SwiftAzureAdAuthenticationPlugin {
     private func acquireTokenSilent(scopes: [String], result: @escaping FlutterResult)
     {
         if let application = getApplication(result: result){
-            var account : MSALAccount!
-            
-            do{
-                guard let currentAccount = try currentAccount(result: result) else{
-                    let error = FlutterError(code: "NO_ACCOUNT",  message: "No account is available to acquire token silently for", details: nil)
-                    result(error)
-                    return
-                }
-                account = currentAccount
-            }
-            catch{
-                result(FlutterError(code: "NO_ACCOUNT",  message: "Error retrieving an existing account", details: nil))
+            guard let account = currentAccount(application) else{
+                result(FlutterError(code: "NO_ACCOUNT",  message: "No account is available to acquire token silently for", details: nil))
+                return
             }
             
             let silentParameters = MSALSilentTokenParameters(scopes: scopes, account: account)
@@ -135,7 +126,16 @@ extension SwiftAzureAdAuthenticationPlugin {
             application.acquireTokenSilent(with: silentParameters, completionBlock: { (msalresult, error) in
                 
                 guard let authResult = msalresult, error == nil else {
-                    result(FlutterError(code: "AUTH_ERROR", message: "Authentication error", details: nil))
+                    let nsError = error as NSError?
+                    // Refresh token expired or revoked, Conditional Access sign-in frequency, password change, …
+                    let interactionRequired = nsError?.domain == MSALErrorDomain
+                        && nsError?.code == MSALError.interactionRequired.rawValue
+                    // MSAL puts the server's description (with the AADSTS code) under its own key, not
+                    // NSLocalizedDescriptionKey, so localizedDescription alone is the generic Cocoa text.
+                    let message = nsError?.userInfo[MSALErrorDescriptionKey] as? String
+                        ?? nsError?.localizedDescription
+                        ?? "Authentication error"
+                    result(FlutterError(code: interactionRequired ? "INTERACTION_REQUIRED" : "AUTH_ERROR", message: message, details: nil))
                     return
                 }
                 
@@ -201,7 +201,7 @@ extension SwiftAzureAdAuthenticationPlugin {
         if let application = getApplication(result: result){
             do{
                 
-                guard let accountToDelete = try currentAccount(result: result) else{
+                guard let accountToDelete = currentAccount(application) else{
                     result(FlutterError(code: "CONFIG_ERROR", message: "Unable get remove accounts Null", details: nil))
                     return
                 }
@@ -239,28 +239,14 @@ extension SwiftAzureAdAuthenticationPlugin {
         }
     }
     
-    @discardableResult func currentAccount(result: @escaping FlutterResult) throws -> MSALAccount? {
-        // We retrieve our current account by checking for the accountIdentifier that we stored in NSUserDefaults when
-        // we first signed in the account.
-        guard let accountIdentifier = currentAccountIdentifier else {
-            // If we did not find an identifier then throw an error indicating there is no currently signed in account.
-            result(FlutterError(code: "CONFIG_ERROR", message: "Account identifier", details: nil))
-            return nil
-        }
-        var acc: MSALAccount?
-        if let application = getApplication(result: result){
-            do {
-                acc = try application.account(forIdentifier: accountIdentifier)
-            } catch let error as NSError {
-                result(FlutterError(code: "CONFIG_ERROR", message: "Account identifier", details: error.localizedDescription))
-            }
-        }
-        guard let account = acc else {
+    // We retrieve our current account by checking for the accountIdentifier that we stored in NSUserDefaults when
+    // we first signed in the account. Answers nothing on the channel: the caller sends the one reply.
+    fileprivate func currentAccount(_ application: MSALPublicClientApplication) -> MSALAccount? {
+        guard let accountIdentifier = currentAccountIdentifier,
+              let account = try? application.account(forIdentifier: accountIdentifier) else {
             clearCurrentAccount()
             return nil
         }
-        
-        
         return account
     }
     
