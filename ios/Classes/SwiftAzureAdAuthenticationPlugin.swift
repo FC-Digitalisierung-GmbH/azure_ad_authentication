@@ -218,7 +218,7 @@ extension SwiftAzureAdAuthenticationPlugin {
             return
         }
         else {
-            result(FlutterError(code: "CONFIG_ERROR", message: "Unable Application", details: nil))
+            // getApplication(result:) has already replied.
             return
         }
     }

@@ -139,7 +139,7 @@ class Msal(context: Context, activity: FlutterActivity?) {
                 result.error(
                     "NO_ACCOUNT",
                     "No account is available to acquire token silently for",
-                    exception
+                    exception.localizedMessage
                 )
             }
         })

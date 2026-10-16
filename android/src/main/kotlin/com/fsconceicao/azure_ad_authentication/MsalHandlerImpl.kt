@@ -94,7 +94,7 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
                     result.error(
                         "NO_ACCOUNT",
                         "No account is available to acquire token silently for",
-                        exception
+                        exception.localizedMessage
                     )
                 }
             })
@@ -113,6 +113,7 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
                     ""
                 )
             }
+            return
         }
 
         //check the scopes
@@ -142,7 +143,7 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
         builder.withScopes(scopes.toList())
             .forAccount(selectedAccount)
             .fromAuthority(selectedAccount.authority)
-            .withCallback(msal.getAuthCallback(result))
+            .withCallback(msal.getAuthSilentCallback(result))
         val acquireTokenParameters = builder.build()
         msal.adAuthentication.acquireTokenSilentAsync(acquireTokenParameters)
     }
@@ -156,10 +157,13 @@ class MsalHandlerImpl(private val msal: Msal) : MethodChannel.MethodCallHandler 
                     null
                 )
             }
+            return
         }
 
         if (scopes == null) {
-            result.error("NO_SCOPE", "Call must include a scope", null)
+            Handler(Looper.getMainLooper()).post {
+                result.error("NO_SCOPE", "Call must include a scope", null)
+            }
             return
         }
 
