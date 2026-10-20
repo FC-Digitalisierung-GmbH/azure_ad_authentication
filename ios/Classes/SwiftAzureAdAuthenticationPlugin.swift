@@ -169,7 +169,7 @@ extension SwiftAzureAdAuthenticationPlugin {
     }
 
     /// The structured parts of an MSAL error, same keys as on Android: `errorCode` (OAuth error, e.g. invalid_grant,
-    /// or the MSAL error code), `subError` (e.g. basic_action) and `stsErrorCode` (e.g. AADSTS700082).
+    /// or the MSAL error code), `subError` (e.g. basic_action) and `stsErrorCode` (e.g. AADSTS700082, from the description).
     fileprivate func errorDetails(_ nsError: NSError?) -> [String: String]? {
         guard let nsError = nsError else { return nil }
         var details = [String: String]()
@@ -177,8 +177,10 @@ extension SwiftAzureAdAuthenticationPlugin {
         if let subError = nsError.userInfo[MSALOAuthSubErrorKey] as? String {
             details["subError"] = subError
         }
-        if let stsCode = (nsError.userInfo[MSALSTSErrorCodesKey] as? [NSNumber])?.first {
-            details["stsErrorCode"] = "AADSTS\(stsCode)"
+        // MSAL has no public key for the STS code, but the server's description starts with it.
+        let description = errorMessage(nsError)
+        if let range = description.range(of: "AADSTS\\d+", options: .regularExpression) {
+            details["stsErrorCode"] = String(description[range])
         }
         return details
     }
