@@ -58,7 +58,7 @@ class Msal(context: Context, activity: FlutterActivity?) {
                     result.error(
                         "AUTH_ERROR",
                         "Authentication failed ${exception.localizedMessage}",
-                        exception.errorCode
+                        errorDetails(exception)
                     )
                 }
             }
@@ -91,21 +91,21 @@ class Msal(context: Context, activity: FlutterActivity?) {
                             result.error(
                                 "INTERACTION_REQUIRED",
                                 exception.localizedMessage,
-                                exception.errorCode
+                                errorDetails(exception)
                             )
                         }
                         is MsalClientException -> {
                             result.error(
                                 "NO_SCOPE",
                                 "Call must include a scope",
-                                exception.localizedMessage
+                                errorDetails(exception)
                             )
                         }
                         is MsalServiceException -> {
                             result.error(
                                 "NO_SCOPE",
                                 exception.localizedMessage,
-                                exception.localizedMessage
+                                errorDetails(exception)
                             )
                         }
                         // Every branch must complete the result, otherwise the Dart future never returns.
@@ -114,7 +114,7 @@ class Msal(context: Context, activity: FlutterActivity?) {
                             result.error(
                                 "AUTH_ERROR",
                                 exception.localizedMessage,
-                                exception.errorCode
+                                errorDetails(exception)
                             )
                         }
                     }
@@ -145,6 +145,20 @@ class Msal(context: Context, activity: FlutterActivity?) {
         })
     }
 
+
+    /**
+     * The structured parts of an MSAL error, same keys as on iOS: `errorCode` (e.g. invalid_grant, no_tokens_found),
+     * `subError` (e.g. basic_action) and `stsErrorCode` (e.g. AADSTS700082). MSAL Android has no accessor for the STS
+     * code, but puts the server's description, which starts with it, into the message.
+     */
+    private fun errorDetails(exception: MsalException): Map<String, String> {
+        val details = mutableMapOf("errorCode" to exception.errorCode)
+        if (exception is MsalUiRequiredException) {
+            exception.oauthSubErrorCode?.let { details["subError"] = it }
+        }
+        Regex("AADSTS\\d+").find(exception.message.orEmpty())?.let { details["stsErrorCode"] = it.value }
+        return details
+    }
 
 }
 

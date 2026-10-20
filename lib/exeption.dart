@@ -1,17 +1,30 @@
 /// message error MsalException
 class MsalException implements Exception {
   String errorMessage;
-  MsalException(this.errorMessage);
+
+  /// MSAL's error code, e.g. `invalid_grant` or `no_tokens_found`; null where the platform reports none.
+  final String? errorCode;
+
+  /// The OAuth sub-error, e.g. `basic_action`, `bad_token`.
+  final String? subError;
+
+  /// The Microsoft Entra error code, e.g. `AADSTS700082` (refresh token expired from inactivity).
+  final String? stsErrorCode;
+
+  MsalException(this.errorMessage,
+      {this.errorCode, this.subError, this.stsErrorCode});
 
   @override
-  String toString() => '$runtimeType: $errorMessage';
+  String toString() => '$runtimeType: $errorMessage'
+      '${errorCode == null ? '' : ' (errorCode: $errorCode, subError: $subError, stsErrorCode: $stsErrorCode)'}';
 }
 
 /// message error MsalInteractionRequiredException
 /// Silent token acquisition needs the user: refresh token expired or revoked,
 /// Conditional Access sign-in frequency, password change, …
 class MsalInteractionRequiredException extends MsalException {
-  MsalInteractionRequiredException(super.errorMessage);
+  MsalInteractionRequiredException(super.errorMessage,
+      {super.errorCode, super.subError, super.stsErrorCode});
 }
 
 /// message error  MsalChangedClientIdException

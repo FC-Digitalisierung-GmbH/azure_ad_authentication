@@ -111,6 +111,10 @@ class AzureAdAuthentication {
   }
 
   MsalException _convertException(PlatformException e) {
+    final details = e.details is Map ? e.details as Map : const {};
+    final errorCode = details['errorCode'] as String?;
+    final subError = details['subError'] as String?;
+    final stsErrorCode = details['stsErrorCode'] as String?;
     switch (e.code) {
       case "CANCELLED":
         return MsalUserCancelledException();
@@ -133,10 +137,16 @@ class AzureAdAuthentication {
         return MsalInitializationException();
       case "INTERACTION_REQUIRED":
         return MsalInteractionRequiredException(
-            e.message ?? "Interaction required");
+            e.message ?? "Interaction required",
+            errorCode: errorCode,
+            subError: subError,
+            stsErrorCode: stsErrorCode);
       case "AUTH_ERROR":
       default:
-        return MsalException(e.message ?? "Authentication error");
+        return MsalException(e.message ?? "Authentication error",
+            errorCode: errorCode,
+            subError: subError,
+            stsErrorCode: stsErrorCode);
     }
   }
 

@@ -81,8 +81,12 @@ extension SwiftAzureAdAuthenticationPlugin {
         if let application = getApplication(result: result){
             
             
-           // let viewController: UIViewController = UIApplication.shared.keyWindow!.rootViewController!
-            let viewController: UIViewController = UIViewController.keyViewController!
+            // No foreground window (e.g. the app went to the background): report it instead of crashing on a nil
+            // presenter.
+            guard let viewController = UIViewController.keyViewController else {
+                result(FlutterError(code: "AUTH_ERROR", message: "No foreground window to present the sign-in on", details: nil))
+                return
+            }
             let webviewParameters = MSALWebviewParameters(authPresentationViewController: viewController)
             if #available(iOS 13.0, *) {
                 webviewParameters.prefersEphemeralWebBrowserSession = true
@@ -97,10 +101,17 @@ extension SwiftAzureAdAuthenticationPlugin {
             
             application.acquireToken(with: interactiveParameters, completionBlock: { (msalresult, error) in
                 guard let authResult = msalresult, error == nil else {
-                    result(FlutterError(code: "AUTH_ERROR", message: "Authentication error", details: error!.localizedDescription))
+                    let nsError = error as NSError?
+                    let cancelled = nsError?.domain == MSALErrorDomain
+                        && nsError?.code == MSALError.userCanceled.rawValue
+                    if cancelled {
+                        result(FlutterError(code: "CANCELLED", message: "User cancelled", details: nil))
+                    } else {
+                        result(FlutterError(code: "AUTH_ERROR", message: self.errorMessage(nsError), details: self.errorDetails(nsError)))
+                    }
                     return
                 }
-                
+
                 result(self.getResultLogin(authResult))
             })
         }
@@ -130,22 +141,46 @@ extension SwiftAzureAdAuthenticationPlugin {
                     // Refresh token expired or revoked, Conditional Access sign-in frequency, password change, …
                     let interactionRequired = nsError?.domain == MSALErrorDomain
                         && nsError?.code == MSALError.interactionRequired.rawValue
-                    // MSAL puts the server's description (with the AADSTS code) under its own key, not
-                    // NSLocalizedDescriptionKey, so localizedDescription alone is the generic Cocoa text.
-                    let message = nsError?.userInfo[MSALErrorDescriptionKey] as? String
-                        ?? nsError?.localizedDescription
-                        ?? "Authentication error"
-                    result(FlutterError(code: interactionRequired ? "INTERACTION_REQUIRED" : "AUTH_ERROR", message: message, details: nil))
+                    result(FlutterError(
+                        code: interactionRequired ? "INTERACTION_REQUIRED" : "AUTH_ERROR",
+                        message: self.errorMessage(nsError),
+                        details: self.errorDetails(nsError)))
                     return
                 }
-                
+
                 result(self.getResultLogin(authResult))
-                
+
             })
         }
         else {
             return
         }
+    }
+}
+//MARK: - Error details
+extension SwiftAzureAdAuthenticationPlugin {
+
+    /// MSAL puts the server's description (with the AADSTS code) under its own key, not NSLocalizedDescriptionKey, so
+    /// localizedDescription alone is the generic Cocoa text.
+    fileprivate func errorMessage(_ nsError: NSError?) -> String {
+        return nsError?.userInfo[MSALErrorDescriptionKey] as? String
+            ?? nsError?.localizedDescription
+            ?? "Authentication error"
+    }
+
+    /// The structured parts of an MSAL error, same keys as on Android: `errorCode` (OAuth error, e.g. invalid_grant,
+    /// or the MSAL error code), `subError` (e.g. basic_action) and `stsErrorCode` (e.g. AADSTS700082).
+    fileprivate func errorDetails(_ nsError: NSError?) -> [String: String]? {
+        guard let nsError = nsError else { return nil }
+        var details = [String: String]()
+        details["errorCode"] = nsError.userInfo[MSALOAuthErrorKey] as? String ?? "msal_\(nsError.code)"
+        if let subError = nsError.userInfo[MSALOAuthSubErrorKey] as? String {
+            details["subError"] = subError
+        }
+        if let stsCode = (nsError.userInfo[MSALSTSErrorCodesKey] as? [NSNumber])?.first {
+            details["stsErrorCode"] = "AADSTS\(stsCode)"
+        }
+        return details
     }
 }
 //MARK: - Get logout remove or count cachedAccounts
@@ -312,7 +347,7 @@ extension UIViewController {
     
     static var keyViewController: UIViewController?{
         if #available(iOS 15, *){
-            return (UIApplication.shared.connectedScenes.filter({$0.activationState == .foregroundActive}).compactMap({$0 as? UIWindowScene}).first?.windows.filter({$0.isKeyWindow}).first?.rootViewController)!
+            return UIApplication.shared.connectedScenes.filter({$0.activationState == .foregroundActive}).compactMap({$0 as? UIWindowScene}).first?.windows.filter({$0.isKeyWindow}).first?.rootViewController
         }else{
             return UIApplication.shared.windows.first(where: {$0.isKeyWindow})?.rootViewController
         }
